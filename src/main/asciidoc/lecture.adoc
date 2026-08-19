@@ -29,9 +29,9 @@ include::_doc_general_attributes.adoc[]
 
 == A long time ago in a galaxy far, far away...
 
-* Java celebrated 30th annyversary in 2026, and Valhalla preview release is planned for March 2027.
+* Java celebrated 30th anniversary in 2026, and Valhalla preview release is planned for March 2027.
 * In a way, with Valhalla we don't get something new in principle.
-* The story starts 54 years ago: with features and dangers of low-level languagles like C, for which Java took its own approach.
+* The story starts 54 years ago: with features and dangers of low-level languages like C, for which Java took its own approach.
 
 [gnuplot,format=svg,width=1400,height=350]
 ....
