@@ -1253,7 +1253,7 @@ set grid xtics ytics linewidth 1.5 linecolor black
 set key top right
 
 set label 1 "Data: TIOBE Index — https://www.tiobe.com/tiobe-index/" \
-    at graph 0.02,0.96 1.5 font ",15" front
+    at graph 0.02,0.96 font ",15" front
 
 # Colourblind-friendly palette, solid lines
 set style line 1 lc rgb "#000000" lw 3
