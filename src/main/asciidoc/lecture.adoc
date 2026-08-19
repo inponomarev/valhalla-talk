@@ -1,0 +1,2324 @@
+= LinkedList, go to Valhalla!
+Ivan Ponomarev
+:revealjs_theme: black
+:revealjs_customtheme: white_course.css
+:revealjs_slideNumber:
+:revealjs_history:
+:revealjs_progress:
+:encoding: UTF-8
+:lang: ru
+include::_doc_general_attributes.adoc[]
+:doctype: article
+:toclevels: 3
+:imagesdir: images
+:source-highlighter: highlightjs
+:highlightjsdir: highlight
+:icons: font
+:iconfont-remote!:
+:iconfont-name: font-awesome-4.7.0/css/font-awesome
+:revealjs_mouseWheel: true
+:revealjs_center: false
+:revealjs_transition: none
+:revealjs_width: 1600
+:revealjs_height: 900
+:stem: latexmath
+:customcss: coverage.css
+
+//== Часть 1. Введение
+:!figure-caption:
+
+== A long time ago in a galaxy far, far away...
+
+* Java celebrated 30th annyversary in 2026, and Valhalla preview release is planned for March 2027.
+* In a way, with Valhalla we don't get something new in principle.
+* The story starts 54 years ago: with features and dangers of low-level languagles like C, for which Java took its own approach.
+
+[gnuplot,format=svg,width=1400,height=350]
+....
+set xdata time
+set timefmt "%Y-%m-%d"
+set format x "%Y"
+
+set xrange ["1970-01-01":"2028-12-31"]
+set yrange [-1.45:1.45]
+
+unset key
+
+unset border
+
+set xtics \
+    ("1970" "1970-01-01", \
+     "1975" "1975-01-01", \
+     "1980" "1980-01-01", \
+     "1985" "1985-01-01", \
+     "1990" "1990-01-01", \
+     "1995" "1995-01-01", \
+     "2000" "2000-01-01", \
+     "2005" "2005-01-01", \
+     "2010" "2010-01-01", \
+     "2015" "2015-01-01", \
+     "2020" "2020-01-01", \
+     "2025" "2025-01-01")
+
+set grid xtics
+set tics nomirror out
+set zeroaxis linewidth 2
+
+set xlabel "Year" font ",18"
+
+unset ytics
+unset ylabel
+
+$timeline << EOD
+1972-01-01   0.72    1.02   "C"                     0.84    "1972"
+1985-10-01   0.72    1.02   "C++"                   0.84    "Oct 1985"
+1995-05-23   -0.72    -1.02   "Java"                -0.84    "23 May 1995"
+2000-07-01  -0.72   -1.02   "C#"                   -0.84    "Jul 2000"
+2012-01-20   0.72    1.02   "Rust"                   0.84    "20 Jan 2012"
+2027-03-23  -0.72   -1.02   "Java 28"               -0.84    "23 Mar 2027"
+EOD
+
+plot \
+    $timeline using 1:2 with impulses linewidth 1.5 notitle, \
+    $timeline using 1:2 with points pointtype 7 pointsize 1 notitle, \
+    $timeline using 1:3:4 with labels center font ",18" notitle, \
+    $timeline using 1:5:6 with labels center font ",14" notitle
+....
+
+
+== In C, we have full control of where we allocate things
+
+[cols="50a,50a"]
+|===
+|
+[source,c]
+----
+typedef struct {
+    int year;
+    int month;
+    int day;
+} Date;
+/* "stack allocation" */
+Date val_date =
+  {.year = 2026, .month = 8, .day = 15};
+/* "heap allocation" */
+Date* ptr_date = malloc(sizeof(Date));
+
+*ptr_date = val_date; // values copied
+ptr_date->day++; // value on heap increased
+print_date(val_date); // 2026-8-15
+print_date(*ptr_date); // 2026-8-16
+----
+|
+[graphviz]
+----
+digraph G {
+  graph [dpi=180, rankdir="LR", nodesep=0.6, ranksep=0.8, fontname="Helvetica"];
+  node  [fontname="Helvetica"];
+
+
+  // ---------------- STACK ----------------
+  stack [
+    shape=plain
+    label=<
+      <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
+
+        <TR>
+          <TD BORDER="1">Stack</TD>
+        </TR>
+
+
+
+        <!-- main frame -->
+        <TR>
+          <TD>
+            <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">
+              <TR>
+                <TD BGCOLOR="#e6e6e6" PORT= "main" ><B>main</B></TD>
+              </TR>
+
+              <TR>
+                <TD>
+                  <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">
+                    <TR>
+                      <TD PORT="val_date" BGCOLOR="#f2f2f2" COLSPAN="2">Date val_date</TD>
+                    </TR>
+                    <TR>
+                      <TD ALIGN="LEFT">year</TD>
+                      <TD ALIGN="LEFT">2026</TD>
+                    </TR>
+                    <TR>
+                      <TD ALIGN="LEFT">month</TD>
+                      <TD ALIGN="LEFT">8</TD>
+                    </TR>
+                    <TR>
+                      <TD ALIGN="LEFT">day</TD>
+                      <TD ALIGN="LEFT">15</TD>
+                    </TR>
+                  </TABLE>
+                </TD>
+              </TR>
+
+              <TR>
+                <TD>
+                  <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">
+                    <TR>
+                      <TD PORT="ptr_date" BGCOLOR="#f2f2f2">   Date* ptr_date  </TD>
+                    </TR>
+                  </TABLE>
+                </TD>
+              </TR>
+            </TABLE>
+          </TD>
+        </TR>
+
+      </TABLE>
+    >
+  ];
+
+
+
+  // ---------------- HEAP ----------------
+  subgraph cluster_heap {
+    label="Heap";
+    color="black";
+
+    heap_date [
+      shape=plain
+      label=<
+        <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
+          <TR>
+            <TD ALIGN="LEFT">year</TD>
+            <TD ALIGN="LEFT">2026</TD>
+          </TR>
+          <TR>
+            <TD ALIGN="LEFT">month</TD>
+            <TD ALIGN="LEFT">8</TD>
+          </TR>
+          <TR>
+            <TD ALIGN="LEFT">day</TD>
+            <TD ALIGN="LEFT">16</TD>
+          </TR>
+        </TABLE>
+      >
+    ];
+  }
+
+  // ptr_date still points to the heap object
+  stack:ptr_date:e -> heap_date:w[];
+
+    // keep heap on the right
+  stack:main -> heap_date [style=invis];
+
+}
+----
+|===
+
+== In C, we have full control of how we pass the arguments
+
+[cols="50a,50a"]
+|===
+|
+[source,c]
+----
+Date modify_months(Date date1, Date *date2) {
+  date1.month++;
+  date2->month++;
+  return date1;
+}
+
+Date result =
+  modify_months(
+    *ptr_date, // value at pointer
+    &val_date  // address of value
+);
+
+// passed by pointer, modified
+print_date(val_date); // 2026-9-15
+//  passed by value, unmodified
+print_date(*ptr_date); // 2026-8-16
+// new value
+print_date(result); //2026-9-16
+----
+
+|
+[graphviz]
+----
+digraph G {
+  graph [dpi=180, rankdir="LR", nodesep=0.6, ranksep=0.8, fontname="Helvetica"];
+  node  [fontname="Helvetica"];
+
+
+  // ---------------- STACK ----------------
+  stack [
+    shape=plain
+    label=<
+      <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
+
+        <TR>
+          <TD BORDER="1">Stack</TD>
+        </TR>
+
+        <!-- modify_months frame -->
+        <TR>
+          <TD>
+            <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">
+              <TR>
+                <TD BGCOLOR="#e6e6e6" PORT= "modify"><B>modify_months</B></TD>
+              </TR>
+
+              <TR>
+                <TD>
+                  <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">
+                    <TR>
+                      <TD BGCOLOR="#f2f2f2" COLSPAN="2">Date date1</TD>
+                    </TR>
+                    <TR>
+                      <TD ALIGN="LEFT">year</TD>
+                      <TD ALIGN="LEFT">2026</TD>
+                    </TR>
+                    <TR>
+                      <TD ALIGN="LEFT">month</TD>
+                      <TD ALIGN="LEFT">9</TD>
+                    </TR>
+                    <TR>
+                      <TD ALIGN="LEFT">day</TD>
+                      <TD ALIGN="LEFT">16</TD>
+                    </TR>
+                  </TABLE>
+                </TD>
+              </TR>
+
+              <TR>
+                <TD>
+                  <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">
+                    <TR>
+                      <TD PORT="date2" BGCOLOR="#f2f2f2">Date* date2</TD>
+                    </TR>
+                  </TABLE>
+                </TD>
+              </TR>
+            </TABLE>
+          </TD>
+        </TR>
+
+        <!-- main frame -->
+        <TR>
+          <TD>
+            <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">
+              <TR>
+                <TD BGCOLOR="#e6e6e6" PORT= "main" ><B>main</B></TD>
+              </TR>
+
+              <TR>
+                <TD>
+                  <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">
+                    <TR>
+                      <TD PORT="val_date" BGCOLOR="#f2f2f2" COLSPAN="2">Date val_date</TD>
+                    </TR>
+                    <TR>
+                      <TD ALIGN="LEFT">year</TD>
+                      <TD ALIGN="LEFT">2026</TD>
+                    </TR>
+                    <TR>
+                      <TD ALIGN="LEFT">month</TD>
+                      <TD ALIGN="LEFT">9</TD>
+                    </TR>
+                    <TR>
+                      <TD ALIGN="LEFT">day</TD>
+                      <TD ALIGN="LEFT">15</TD>
+                    </TR>
+                  </TABLE>
+                </TD>
+              </TR>
+
+              <TR>
+                <TD>
+                  <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">
+                    <TR>
+                      <TD PORT="ptr_date" BGCOLOR="#f2f2f2">   Date* ptr_date   </TD>
+                    </TR>
+                  </TABLE>
+                </TD>
+              </TR>
+            </TABLE>
+          </TD>
+        </TR>
+
+      </TABLE>
+    >
+  ];
+
+  // date2 points back into the caller's frame
+  stack:date2:w -> stack:val_date:w;
+
+  // ---------------- HEAP ----------------
+  subgraph cluster_heap {
+    label="Heap";
+    color="black";
+
+    heap_date [
+      shape=plain
+      label=<
+        <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
+          <TR>
+            <TD ALIGN="LEFT">year</TD>
+            <TD ALIGN="LEFT">2026</TD>
+          </TR>
+          <TR>
+            <TD ALIGN="LEFT">month</TD>
+            <TD ALIGN="LEFT">8</TD>
+          </TR>
+          <TR>
+            <TD ALIGN="LEFT">day</TD>
+            <TD ALIGN="LEFT">16</TD>
+          </TR>
+        </TABLE>
+      >
+    ];
+  }
+
+  // ptr_date still points to the heap object
+  stack:ptr_date:e -> heap_date:w[];
+
+    // keep heap on the right
+  stack:main -> heap_date [style=invis];
+
+}
+----
+|===
+
+== Arrays of values and arrays of pointers
+
+[cols="50a,50a"]
+|===
+|
+[source,c]
+----
+Date val_dates[3];
+val_dates[0] = val_date;
+val_dates[1] = *ptr_date;
+val_dates[2] = result;
+
+Date* ptr_dates[3];
+ptr_dates[0] = &val_dates[0];
+ptr_dates[1] = &val_dates[1];
+ptr_dates[2] = &val_dates[1];
+----
+|
+[graphviz]
+----
+digraph G {
+  graph [dpi=180, rankdir="LR", nodesep=1.0, ranksep=0.8];
+  node  [fontname="Helvetica"];
+  edge  [fontname="Helvetica"];
+
+  ptr_dates [
+    shape=plain
+    label=<
+      <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
+        <TR>
+          <TD BGCOLOR="#e6e6e6"><B>Date* ptr_dates[3]</B></TD>
+        </TR>
+        <TR>
+          <TD PORT="p0" ALIGN="LEFT">ptr_dates[0]</TD>
+        </TR>
+        <TR>
+          <TD PORT="p1" ALIGN="LEFT">ptr_dates[1]</TD>
+        </TR>
+        <TR>
+          <TD PORT="p2" ALIGN="LEFT">ptr_dates[2]</TD>
+        </TR>
+      </TABLE>
+    >
+  ];
+
+  val_dates [
+    shape=plain
+    label=<
+      <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
+        <TR>
+          <TD BGCOLOR="#e6e6e6" COLSPAN="3"><B>Date val_dates[3]</B></TD>
+        </TR>
+
+        <TR>
+          <TD PORT="v0" BGCOLOR="#f2f2f2" ROWSPAN="3">val_dates[0]</TD>
+          <TD ALIGN="LEFT">year</TD>
+          <TD ALIGN="LEFT">2026</TD>
+        </TR>
+        <TR>
+          <TD ALIGN="LEFT">month</TD>
+          <TD ALIGN="LEFT">9</TD>
+        </TR>
+        <TR>
+          <TD ALIGN="LEFT">day</TD>
+          <TD ALIGN="LEFT">15</TD>
+        </TR>
+
+        <TR>
+          <TD PORT="v1" BGCOLOR="#f2f2f2" ROWSPAN="3">val_dates[1]</TD>
+          <TD ALIGN="LEFT">year</TD>
+          <TD ALIGN="LEFT">2026</TD>
+        </TR>
+        <TR>
+          <TD ALIGN="LEFT">month</TD>
+          <TD ALIGN="LEFT">8</TD>
+        </TR>
+        <TR>
+          <TD ALIGN="LEFT">day</TD>
+          <TD ALIGN="LEFT">16</TD>
+        </TR>
+
+        <TR>
+          <TD PORT="v2" BGCOLOR="#f2f2f2" ROWSPAN="3">val_dates[2]</TD>
+          <TD ALIGN="LEFT">year</TD>
+          <TD ALIGN="LEFT">2026</TD>
+        </TR>
+        <TR>
+          <TD ALIGN="LEFT">month</TD>
+          <TD ALIGN="LEFT">9</TD>
+        </TR>
+        <TR>
+          <TD ALIGN="LEFT">day</TD>
+          <TD ALIGN="LEFT">16</TD>
+        </TR>
+      </TABLE>
+    >
+  ];
+
+  ptr_dates:p0:e -> val_dates:v0:w;
+  ptr_dates:p1:e -> val_dates:v1:w;
+  ptr_dates:p2:e -> val_dates:v1:w;
+}
+----
+|===
+
+== C language horrors: dangling pointers
+
+[cols="50a,50a"]
+|===
+|
+[source,c]
+----
+void fillInterval(Date* from, Date* to) {
+  from = malloc(sizeof(Date));
+  *from = (Date){.year = 2026,
+    .month = 8, .day = 15};
+  Date dateTo = (Date){.year = 2026,
+    .month = 8, .day = 16};
+  to = &dateTo;
+  free(from);
+}
+
+void main() {
+  Date* from = NULL;
+  Date* to = NULL;
+  fillInterval(from, to);
+  print_date(*from); //Access violation
+  print_date(*to);
+}
+----
+|
+
+[graphviz]
+----
+digraph G {
+  graph [dpi=180, rankdir="LR", nodesep=0.6, ranksep=0.8, fontname="Helvetica"];
+  node  [fontname="Helvetica"];
+  edge  [fontname="Helvetica"];
+
+  // STACK
+  stack [
+    shape=plain
+    label=<
+      <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
+
+        <TR>
+          <TD BORDER="1">Stack</TD>
+        </TR>
+
+        <TR>
+          <TD>
+            <TABLE BORDER="1" COLOR="#cc6666" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">
+              <TR>
+                <TD BGCOLOR="#f4cccc" PORT="fill"><FONT COLOR="#a61c1c"><B>fillInterval (exited)</B></FONT></TD>
+              </TR>
+
+              <TR>
+                <TD>. . .</TD>
+              </TR>
+              <TR>
+                <TD>
+                  <TABLE BORDER="0" COLOR="#cc6666" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">
+                    <TR><TD PORT="dateTo" BGCOLOR="#fde9e7" COLSPAN="2">Date dateTo</TD></TR>
+                    <TR><TD ALIGN="LEFT" BGCOLOR="#fde9e7">year</TD><TD ALIGN="LEFT" BGCOLOR="#fde9e7">2026</TD></TR>
+                    <TR><TD ALIGN="LEFT" BGCOLOR="#fde9e7">month</TD><TD ALIGN="LEFT" BGCOLOR="#fde9e7">8</TD></TR>
+                    <TR><TD ALIGN="LEFT" BGCOLOR="#fde9e7">day</TD><TD ALIGN="LEFT" BGCOLOR="#fde9e7">16</TD></TR>
+                  </TABLE>
+                </TD>
+              </TR>
+            </TABLE>
+          </TD>
+        </TR>
+
+        <TR>
+          <TD>
+            <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">
+              <TR>
+                <TD BGCOLOR="#e6e6e6" PORT="main"><B>main</B></TD>
+              </TR>
+
+              <TR>
+                <TD>
+                  <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">
+                    <TR><TD PORT="from" BGCOLOR="#f2f2f2" >Date* from</TD></TR>
+
+                  </TABLE>
+                </TD>
+              </TR>
+
+              <TR>
+                <TD>
+                  <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">
+                    <TR><TD PORT="to" BGCOLOR="#f2f2f2" >Date* to</TD></TR>
+
+                  </TABLE>
+                </TD>
+              </TR>
+            </TABLE>
+          </TD>
+        </TR>
+
+      </TABLE>
+    >
+  ];
+
+  // Dangling pointers inside the exited frame
+  stack:to:w   -> stack:dateTo:w   [style=dashed, color="#a61c1c"];
+  stack:from:e -> heap_date:w      [style=dashed, color="#a61c1c"];
+
+
+  // HEAP
+  subgraph cluster_heap {
+    label="Heap";
+    color="black";
+
+    heap_date [
+      shape=plain
+      label=<
+        <TABLE BORDER="1" COLOR="#cc6666" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
+          <TR><TD ALIGN="LEFT" BGCOLOR="#fde9e7">year</TD><TD ALIGN="LEFT" BGCOLOR="#fde9e7">2026</TD></TR>
+          <TR><TD ALIGN="LEFT" BGCOLOR="#fde9e7">month</TD><TD ALIGN="LEFT" BGCOLOR="#fde9e7">8</TD></TR>
+          <TR><TD ALIGN="LEFT" BGCOLOR="#fde9e7">day</TD><TD ALIGN="LEFT" BGCOLOR="#fde9e7">15</TD></TR>
+        </TABLE>
+      >
+    ];
+  }
+
+  // keep heap on the right
+  stack:main -> heap_date [style=invis];
+}
+----
+
+|===
+
+== C language horrors: lost pointer / memory leak
+
+[cols="50a,50a"]
+|===
+|
+[source,c]
+----
+Date* date = malloc(sizeof(Date));
+*date =
+  (Date){.year = 2026,
+         .month = 8,
+         .day = 15};
+date = malloc(sizeof(Date));
+*date =
+  (Date){.year = 2026,
+         .month = 8,
+         .day = 16};
+----
+|
+[graphviz]
+----
+digraph G {
+  graph [dpi=180, rankdir="LR", nodesep=0.2, ranksep=0.8, fontname="Helvetica"];
+  node  [fontname="Helvetica"];
+  edge  [fontname="Helvetica"];
+
+  Leak[shape=note, label="This will remain\non heap forever"];
+
+
+  // ---------------- STACK ----------------
+  stack [
+    shape=plain
+    label=<
+      <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
+        <TR>
+          <TD BORDER="1">Stack</TD>
+        </TR>
+
+        <TR>
+          <TD>
+            <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">
+              <TR>
+                <TD BGCOLOR="#e6e6e6"><B>main</B></TD>
+              </TR>
+              <TR>
+                <TD>
+                  <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">
+                    <TR>
+                      <TD BGCOLOR="#f2f2f2" PORT="date">Date* date</TD>
+                    </TR>
+                  </TABLE>
+                </TD>
+              </TR>
+            </TABLE>
+          </TD>
+        </TR>
+      </TABLE>
+    >
+  ];
+
+  // ---------------- HEAP ----------------
+  subgraph cluster_heap {
+    label="Heap";
+    color="black";
+
+    heap_lost_date [
+      shape=plain
+      label=<
+        <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
+          <TR>
+            <TD ALIGN="LEFT">year</TD>
+            <TD ALIGN="LEFT">2026</TD>
+          </TR>
+          <TR>
+            <TD ALIGN="LEFT">month</TD>
+            <TD ALIGN="LEFT">8</TD>
+          </TR>
+          <TR>
+            <TD ALIGN="LEFT">day</TD>
+            <TD ALIGN="LEFT">15</TD>
+          </TR>
+        </TABLE>
+      >
+    ];
+
+    heap_date [
+      shape=plain
+      label=<
+        <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
+          <TR>
+            <TD ALIGN="LEFT">year</TD>
+            <TD ALIGN="LEFT">2026</TD>
+          </TR>
+          <TR>
+            <TD ALIGN="LEFT">month</TD>
+            <TD ALIGN="LEFT">8</TD>
+          </TR>
+          <TR>
+            <TD ALIGN="LEFT">day</TD>
+            <TD ALIGN="LEFT">16</TD>
+          </TR>
+        </TABLE>
+      >
+    ];
+
+  }
+
+  stack:date -> heap_date [];
+  Leak -> heap_lost_date[arrowhead=none];
+}
+----
+|===
+
+
+
+== Java to the rescue: no `*`, no `&`, everything is predefined
+
+[cols="50a,50a"]
+|===
+|
+[source,java]
+----
+@AllArgsConstructor @ToString
+class Date {
+  int day; int month; int year; }
+
+int modifyMonths(int month, Date date) {
+  month++; date.month++;
+  return month; }
+
+Date d = new Date(15, 8, 2026);
+int month = 8;
+int result = modifyMonths(month, d);
+println(month);  // 8
+println(d);      // Date(d=15, m=9, y=2026)
+println(result); // 9
+----
+
+|
+[graphviz]
+----
+digraph G {
+  graph [dpi=180, rankdir="LR", nodesep=0.6, ranksep=0.8, fontname="Helvetica"];
+  node  [fontname="Helvetica"];
+  edge  [fontname="Helvetica"];
+
+  // ---------------- STACK ----------------
+  stack [
+    shape=plain
+    label=<
+      <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
+
+        <TR>
+          <TD BORDER="1">Stack</TD>
+        </TR>
+
+        <!-- modifyMonths frame -->
+        <TR>
+          <TD>
+            <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">
+              <TR>
+                <TD BGCOLOR="#e6e6e6" PORT="modify">   <B>modifyMonths</B>   </TD>
+              </TR>
+
+              <TR>
+                <TD>
+                  <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">
+                    <TR>
+                      <TD BGCOLOR="#f2f2f2" COLSPAN="2">int month</TD>
+                    </TR>
+                    <TR>
+                      <TD ALIGN="LEFT">value</TD>
+                      <TD ALIGN="LEFT">9</TD>
+                    </TR>
+                  </TABLE>
+                </TD>
+              </TR>
+
+              <TR>
+                <TD>
+                  <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">
+                    <TR>
+                      <TD PORT="date" BGCOLOR="#f2f2f2">Date date</TD>
+                    </TR>
+                  </TABLE>
+                </TD>
+              </TR>
+            </TABLE>
+          </TD>
+        </TR>
+
+        <!-- main frame -->
+        <TR>
+          <TD>
+            <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">
+              <TR>
+                <TD BGCOLOR="#e6e6e6" PORT="main"><B>main</B></TD>
+              </TR>
+
+              <TR>
+                <TD>
+                  <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">
+                    <TR>
+                      <TD PORT="d" BGCOLOR="#f2f2f2">Date d</TD>
+                    </TR>
+                  </TABLE>
+                </TD>
+              </TR>
+
+              <TR>
+                <TD>
+                  <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">
+                    <TR>
+                      <TD BGCOLOR="#f2f2f2" COLSPAN="2">int month</TD>
+                    </TR>
+                    <TR>
+                      <TD ALIGN="LEFT">value</TD>
+                      <TD ALIGN="LEFT">8</TD>
+                    </TR>
+                  </TABLE>
+                </TD>
+              </TR>
+            </TABLE>
+          </TD>
+        </TR>
+
+      </TABLE>
+    >
+  ];
+
+  // ---------------- HEAP ----------------
+  subgraph cluster_heap {
+    label="Heap";
+    color="black";
+
+    heap_date [
+      shape=plain
+      label=<
+        <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
+          <TR>
+            <TD COLSPAN="2"><B>Date</B></TD>
+          </TR>
+          <TR>
+            <TD ALIGN="LEFT">day</TD>
+            <TD ALIGN="LEFT">15</TD>
+          </TR>
+          <TR>
+            <TD ALIGN="LEFT">month</TD>
+            <TD ALIGN="LEFT">9</TD>
+          </TR>
+          <TR>
+            <TD ALIGN="LEFT">year</TD>
+            <TD ALIGN="LEFT">2026</TD>
+          </TR>
+        </TABLE>
+      >
+    ];
+  }
+
+  // two references to the same heap object
+  stack:d:e -> heap_date:w;
+  stack:date:e -> heap_date:w;
+}
+----
+|===
+
+== Java arrays of objects contain references
+
+[cols="50a,50a"]
+|===
+|
+[source,java]
+----
+Date[] dates = new Date[3];
+
+dates[0] = new Date(1, 1, 2023);
+dates[1] = new Date(2, 2, 2024);
+dates[2] = dates[1];
+----
+
+|
+[graphviz]
+----
+digraph G {
+  graph [dpi=180, rankdir="LR", nodesep=0.6, ranksep=0.8, fontname="Helvetica"];
+  node  [fontname="Helvetica"];
+  edge  [fontname="Helvetica"];
+
+  // ---------------- STACK ----------------
+  stack [
+    shape=plain
+    label=<
+      <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
+
+        <TR>
+          <TD BORDER="1">Stack</TD>
+        </TR>
+
+        <TR>
+          <TD>
+            <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">
+              <TR>
+                <TD BGCOLOR="#e6e6e6"><B>main</B></TD>
+              </TR>
+
+              <TR>
+                <TD>
+                  <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">
+                    <TR>
+                      <TD PORT="dates" BGCOLOR="#f2f2f2">   Date[] dates   </TD>
+                    </TR>
+                  </TABLE>
+                </TD>
+              </TR>
+
+            </TABLE>
+          </TD>
+        </TR>
+
+      </TABLE>
+    >
+  ];
+
+  // ---------------- HEAP ----------------
+  subgraph cluster_heap {
+    label="Heap";
+    color="black";
+
+    dates_array [
+      shape=plain
+      label=<
+        <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
+          <TR>
+            <TD><B>Date[]</B></TD>
+          </TR>
+          <TR>
+            <TD>length = 3</TD>
+          </TR>
+          <TR>
+            <TD PORT="d0" ALIGN="LEFT">dates[0]</TD>
+          </TR>
+          <TR>
+            <TD PORT="d1" ALIGN="LEFT">dates[1]</TD>
+          </TR>
+          <TR>
+            <TD PORT="d2" ALIGN="LEFT">dates[2]</TD>
+          </TR>
+        </TABLE>
+      >
+    ];
+
+    date0 [
+      shape=plain
+      label=<
+        <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
+          <TR>
+            <TD COLSPAN="2"><B>Date</B></TD>
+          </TR>
+          <TR>
+            <TD ALIGN="LEFT">day</TD>
+            <TD ALIGN="LEFT">1</TD>
+          </TR>
+          <TR>
+            <TD ALIGN="LEFT">month</TD>
+            <TD ALIGN="LEFT">1</TD>
+          </TR>
+          <TR>
+            <TD ALIGN="LEFT">year</TD>
+            <TD ALIGN="LEFT">2023</TD>
+          </TR>
+        </TABLE>
+      >
+    ];
+
+    date1 [
+      shape=plain
+      label=<
+        <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
+          <TR>
+            <TD COLSPAN="2"><B>Date</B></TD>
+          </TR>
+          <TR>
+            <TD ALIGN="LEFT">day</TD>
+            <TD ALIGN="LEFT">2</TD>
+          </TR>
+          <TR>
+            <TD ALIGN="LEFT">month</TD>
+            <TD ALIGN="LEFT">2</TD>
+          </TR>
+          <TR>
+            <TD ALIGN="LEFT">year</TD>
+            <TD ALIGN="LEFT">2024</TD>
+          </TR>
+        </TABLE>
+      >
+    ];
+  }
+
+  // local variable references the array object
+  stack:dates:e -> dates_array:w;
+
+  // array elements contain references to Date objects
+  dates_array:d0:e -> date0:w;
+  dates_array:d1:e -> date1:w;
+  dates_array:d2:e -> date1:w;
+}
+----
+|===
+
+== Lost reference is not a problem
+
+[cols="50a,50a"]
+|===
+|
+[source,java]
+----
+dates = new Date[0];
+----
+
+|
+[graphviz]
+----
+digraph G {
+  graph [dpi=180, rankdir="LR", nodesep=0.6, ranksep=0.8, fontname="Helvetica"];
+  node  [fontname="Helvetica"];
+  edge  [fontname="Helvetica"];
+
+  GC[shape=note, label="Garbage collector\nwill remove this"];
+
+  // ---------------- STACK ----------------
+  stack [
+    shape=plain
+    label=<
+      <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
+
+        <TR>
+          <TD BORDER="1">Stack</TD>
+        </TR>
+
+        <TR>
+          <TD>
+            <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">
+              <TR>
+                <TD BGCOLOR="#e6e6e6" >
+                  <B>main</B>
+                </TD>
+              </TR>
+
+              <TR>
+                <TD>
+                  <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">
+                    <TR>
+                      <TD BGCOLOR="#f2f2f2" PORT="date">Date[] dates</TD>
+                    </TR>
+
+                  </TABLE>
+                </TD>
+              </TR>
+
+            </TABLE>
+          </TD>
+        </TR>
+
+      </TABLE>
+    >
+  ];
+
+  // ---------------- HEAP ----------------
+  subgraph cluster_heap {
+    label="Heap";
+    color="black";
+
+    new_dates_array [
+      shape=plain
+      label=<
+        <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
+          <TR>
+            <TD><B>Date[]</B></TD>
+          </TR>
+          <TR>
+            <TD>length = 0</TD>
+          </TR>
+        </TABLE>
+      >
+    ];
+
+    dates_array [
+      shape=plain
+      label=<
+        <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
+          <TR>
+            <TD><B>Date[]</B></TD>
+          </TR>
+          <TR>
+            <TD>length = 3</TD>
+          </TR>
+          <TR>
+            <TD PORT="d0" ALIGN="LEFT">dates[0]</TD>
+          </TR>
+          <TR>
+            <TD PORT="d1" ALIGN="LEFT">dates[1]</TD>
+          </TR>
+          <TR>
+            <TD PORT="d2" ALIGN="LEFT">dates[2]</TD>
+          </TR>
+        </TABLE>
+      >
+    ];
+
+    date0 [
+      shape=plain
+      label=<
+        <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
+          <TR>
+            <TD COLSPAN="2"><B>Date</B></TD>
+          </TR>
+          <TR>
+            <TD ALIGN="LEFT">day</TD>
+            <TD ALIGN="LEFT">1</TD>
+          </TR>
+          <TR>
+            <TD ALIGN="LEFT">month</TD>
+            <TD ALIGN="LEFT">1</TD>
+          </TR>
+          <TR>
+            <TD ALIGN="LEFT">year</TD>
+            <TD ALIGN="LEFT">2023</TD>
+          </TR>
+        </TABLE>
+      >
+    ];
+
+    date1 [
+      shape=plain
+      label=<
+        <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
+          <TR>
+            <TD COLSPAN="2"><B>Date</B></TD>
+          </TR>
+          <TR>
+            <TD ALIGN="LEFT">day</TD>
+            <TD ALIGN="LEFT">2</TD>
+          </TR>
+          <TR>
+            <TD ALIGN="LEFT">month</TD>
+            <TD ALIGN="LEFT">2</TD>
+          </TR>
+          <TR>
+            <TD ALIGN="LEFT">year</TD>
+            <TD ALIGN="LEFT">2024</TD>
+          </TR>
+        </TABLE>
+      >
+    ];
+  }
+
+  // local variable references the array object
+  stack:dates:e -> new_dates_array:w[];
+
+  GC -> dates_array:w[arrowhead=none];
+
+  // array elements contain references to Date objects
+  dates_array:d0:e -> date0:w;
+  dates_array:d1:e -> date1:w;
+  dates_array:d2:e -> date1:w;
+}
+----
+|===
+
+== So, these design decisions from 1995 were justified
+
+[cols="50a,50a"]
+|===
+|
+* No allocations on stack
+* No manual deallocation
+|  => no dangling references
+|
+* Garbage collection
+|=> no "lost reference" problem
+|
+* 8 predefined primitive types (`byte`, `short`, `int`, `long`, `char`, `float`, `double`, `boolean`)
+| A performance trade-off, which complicated the type system, language teaching and led to further problematic decisions such as need of boxing to use these types in generics.
+|===
+
+== Of course, Java way is not the only way...
+
+[cols="20a,80a"]
+|===
+|
+image::c_sharp_logo_2023.svg[{image-80-width}]
+|
+C# ("Java competitor", 4 years younger than Java)
+
+* has GC, but also has `struct` for "stack-allocated" value types and `ref` for passing values by reference.
+* `ref` escape scope is checked by the compiler: you cannot pass a `ref` to something stack-allocated into a global storage.
+* `List<int>` doesn't use boxing.
+|
+image::rust-logo-blk.svg[{image-80-width}]
+|
+Rust ("C competitor", roughly 10 years younger than Java)
+
+* Has `struct`, immutable (`&`) and mutable (`&mut`) references
+* Borrow checking/lifetime checking in compile time.
+|===
+
+== ...But for the 20 years that followed, C and Java have remained the top 2 languages on TIOBE index
+
+[gnuplot,{image-70-width}]
+----
+set terminal pngcairo size 1400,850 enhanced font "Arial,20"
+
+set datafile separator comma
+set datafile missing ""
+
+set xdata time
+set timefmt "%Y-%m-%d"
+set format x "%Y"
+
+set yrange [0:*]
+
+set xlabel "Year"
+set ylabel "TIOBE index (%)"
+
+# More visible grid
+set grid xtics ytics linewidth 1.5 linecolor black
+
+
+set key top right
+
+set label 1 "Data: TIOBE Index — https://www.tiobe.com/tiobe-index/" \
+    at graph 0.02,0.96 1.5 font ",15" front
+
+# Colourblind-friendly palette, solid lines
+set style line 1 lc rgb "#000000" lw 3
+set style line 2 lc rgb "#0072B2" lw 3
+set style line 3 lc rgb "#D55E00" lw 3
+set style line 4 lc rgb "#009E73" lw 3
+
+plot "tiobe-4-wide.csv" using 1:2 \
+        with lines linestyle 1 title "C", \
+     "" using 1:3 \
+        with lines linestyle 2 title "C#", \
+     "" using 1:4 \
+        with lines linestyle 3 title "Java", \
+     "" using 1:5 \
+        with lines linestyle 4 title "Rust"
+----
+
+
+== The price we pay for safety in Java: memory and performance overhead
+
+Objects that could have been simple values: Java21, 64bits, compressed references, measured with JOL:
+
+[cols="40a,60a"]
+|===
+| `Integer`/ `AtomicInteger`
+| 8 bytes header + 4 bytes class + 4 bytes data = 16 bytes (4x overhead)
+| `LocalDate`
+| 8 bytes header, 4 bytes class, 4 bytes year,2 bytes month, 2 bytes day, 4 bytes alignment gap = 24 bytes (3x overhead)
+| `java.util.LinkedList$Node`
+|   +24 bytes per entry
+//| `java.util.HashMap$Node`
+//| +32 bytes per entry
+//| `java.util.LinkedHashMap$Entry`
+//| +40 bytes per entry
+//| `java.util.TreeMap$Entry`
+//| +40 bytes per entry
+|===
+
+== Boxing introduces a significant performance overhead
+
+[cols="50a,50a"]
+|===
+|
+
+A wrapper object with 4x memory overhead for a simple `int`:
+
+[source,java]
+----
+Object a = 2026;
+Object b = 2026;
+/*false (before Valhalla)*/
+out.println(a == b);
+/*true*/
+out.println(a.equals(b));
+----
+|
+[gnuplot]
+----
+set title "ArrayList<Integer> vs IntArrayList"
+set ylabel "Time, ms/op"
+set yrange [0:*]
+set xrange [0:6]
+
+set style fill solid 0.8 border -1
+set boxwidth 0.7
+set grid ytics
+unset key
+
+set xtics rotate by -20
+set xtics ("ArrayList\n(iterate)" 1, \
+           "IntArrayList\n(iterate)" 2, \
+           "ArrayList\n(populate)" 4, \
+           "IntArrayList\n(populate)" 5)
+
+set label "Iteration" at 1.5, graph -0.14 center
+set label "Population" at 4.5, graph -0.14 center
+
+$DATA << EOD
+# x   value   error
+1    0.943   0.018
+2    0.133   0.015
+4    2.798   0.119
+5    0.821   0.078
+EOD
+
+plot \
+    $DATA using 1:2 with boxes, \
+    ''    using 1:2:3 with yerrorbars lw 2 pt 0
+----
+|===
+
+(Yet nobody uses `IntArrayList` outside of very specific cases.)
+
+== LinkedList
+
+image::blochonlinkedlist.png[]
+
+== LinkedList
+
+[source,java]
+----
+List<String> list = new LinkedList<>();
+list.add("foo"); list.add("bar"); list.add("baz");
+----
+
+[graphviz, "linkedlist-inside.png"]
+-----
+digraph Java {
+    rankdir="LR";
+    graph [ dpi = 150 ];
+  node  [fontname="Helvetica"];
+  edge  [fontname="Helvetica"];
+
+n356573597[label="LinkedList|{size: 3}",shape=record];
+n356573597 -> n1173230247[label="first",fontsize=12];
+n1173230247[label="Node|{item: foo|prev: null}",shape=record];
+n1173230247 -> n856419764[label="next",fontsize=12];
+n856419764[label="Node|{item: bar}",shape=record];
+n856419764 -> n621009875[label="next",fontsize=12];
+n621009875[label="Node|{item: baz|next: null}",shape=record];
+n621009875 -> n856419764[label="prev",fontsize=12];
+n856419764 -> n1173230247[label="prev",fontsize=12];
+n356573597 -> n621009875[label="last",fontsize=12];
+}
+-----
+
+== LinkedList problems
+
+[cols="60a,40a"]
+|===
+|
+1. `Node` is 24 bytes per element (while `ArrayList` typically takes only 4 bytes per compressed object reference)
+2. Potentially poor data locality -- less effective CPU cache usage
+3. Higher load on GC
+|
+[gnuplot]
+----
+set title "Iteration over 1,000,000 elements"
+set ylabel "Time, ms/op"
+set yrange [0:*]
+set xrange [0:3]
+
+set style fill solid 0.8 border -1
+set boxwidth 0.7
+set grid ytics
+unset key
+
+set xtics ("ArrayList" 1, \
+           "LinkedList" 2)
+
+$DATA << EOD
+# x   value   error
+1   2.093   0.144
+2   5.799   1.030
+EOD
+
+plot \
+    $DATA using 1:2 with boxes, \
+    ''    using 1:2:3 with yerrorbars lw 2 pt 0
+----
+|===
+
+== `LinkedList$Node` doesn't need to be that large...
+
+* `XOR` linked list: instead of storing `prev` and `next`, it's sufficient to store `prev XOR next` in one field.
+* During all the list traversals, one either knows current `prev` or current `next` and can retrieve the unknown using the `XOR` operation.
+* Java does not allow this trick, as "pointers" are hidden.
+
+
+[graphviz,svg]
+----
+digraph G {
+  graph [dpi=180, rankdir="LR", nodesep=0.5, ranksep=0.8, fontname="Helvetica"];
+  node  [fontname="Helvetica", shape=plain];
+  edge  [fontname="Helvetica"];
+  Header[
+      label=<
+      <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
+        <TR><TD COLSPAN="2"><B>Header</B></TD></TR>
+        <TR><TD PORT="head" COLSPAN="2">head</TD></TR>
+        <TR><TD PORT="tail" COLSPAN="2">tail</TD></TR>
+        <TR><TD>size</TD><TD>4</TD></TR>
+      </TABLE>
+      >
+      ];
+  Header:head:e -> A;
+  Header:tail:e -> D;
+
+  A [
+    label=<
+      <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
+        <TR><TD COLSPAN="2"><B>A</B></TD></TR>
+        <TR>
+          <TD>prevXorNext</TD>
+          <TD>0 ^ B</TD>
+        </TR>
+      </TABLE>
+    >
+  ];
+
+  B [
+    label=<
+      <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
+        <TR><TD COLSPAN="2"><B>B</B></TD></TR>
+        <TR>
+          <TD>prevXorNext</TD>
+          <TD>A ^ C</TD>
+        </TR>
+      </TABLE>
+    >
+  ];
+
+  C [
+    label=<
+      <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
+        <TR><TD COLSPAN="2"><B>C</B></TD></TR>
+        <TR>
+          <TD>prevXorNext</TD>
+          <TD>B ^ D</TD>
+        </TR>
+      </TABLE>
+    >
+  ];
+
+  D [
+    label=<
+      <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
+        <TR><TD COLSPAN="2"><B>D</B></TD></TR>
+        <TR>
+          <TD>prevXorNext</TD>
+          <TD>C ^ 0</TD>
+        </TR>
+      </TABLE>
+    >
+  ];
+
+
+
+   A -> B;
+   A -> B[dir=back];
+  B -> C;
+  B -> C[dir=back];
+  C -> D;
+  C -> D[dir=back];
+}
+----
+
+== What does theory promise us?
+
+|===
+a|
+
+[cols="40,20,20,20"]
+!===
+!
+! `ArrayList`
+! `LinkedList`
+! `ArrayDeque`
+
+! addLast/removeLast
+! O(1) footnote:buffer-growth[Addition complexity is amortized, using exponential buffer growth.]
+! O(1)
+! O(1) footnote:buffer-growth[]
+
+! addFirst/removeFirst
+! O(N)
+! O(1)
+! O(1) footnote:buffer-growth[]
+
+! get(n)
+! O(1)
+! O(N) footnote:linkedlist-get[Traversal starts from the shorter end; n/4 steps on average.]
+! O(1)
+
+! iterator.add/remove
+! O(N)
+! O(1)
+! O(N)
+!===
+
+|===
+
+Linked list is not a "bad" structure _per se;_ it's just that fundamental Java features made Bloch's `LinkedList` implementation useless.
+
+== Here comes Valhalla!
+
+* *Value objects* — identity-free instances of immutable classes, which _may_ be allocated on stack, passed by value, and distinguished only by its own internal state.
+* You may think of `value` types as new primitives: immutable entities distinguished _only_ by their internal state.
+
+[source,java]
+----
+public final value class LocalDate implements ... {
+    private final transient int year;
+    private final transient byte month;
+    private final transient byte day;
+    ... }
+----
+
+//== `value` type is like a `struct`, but not a `struct`
+
+//* You can declare an immutable class or record to be `value`.
+//* Unlike C, C# and Rust `struct`, value types allow self-reference:
+
+//[source,java]
+//----
+//value record Employee(
+//        String name,
+//        int salary,
+//        Employee manager //compiles!
+//) {}
+//----
+
+//* JVM will decide the implementation details
+
+== Flattened arrays
+
+[cols="50a,50a"]
+|===
+|
+
+[source,java]
+----
+LocalDate[] dates =
+  (LocalDate[]) ValueClass
+  .newNullRestrictedNonAtomicArray(
+    LocalDate.class, 3,
+    LocalDate.now());
+
+boolean isFlat =
+  ValueClass.isFlatArray(dates); //true
+----
+
+|
+
+[graphviz,{image-30-width}]
+----
+digraph G {
+graph [dpi=180, rankdir="LR", nodesep=1.0, ranksep=0.8];
+node  [fontname="Helvetica"];
+edge  [fontname="Helvetica"];
+dates [
+shape=plain
+label=<
+<TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
+<TR>
+<TD BGCOLOR="#e6e6e6" COLSPAN="3"><B>Date[] dates</B></TD>
+</TR>
+<TR>
+<TD>size</TD>
+<TD COLSPAN="2">3</TD>
+</TR>
+
+        <TR>
+          <TD PORT="v0" BGCOLOR="#f2f2f2" ROWSPAN="3">dates[0]</TD>
+          <TD ALIGN="LEFT">year</TD>
+          <TD ALIGN="LEFT">2026</TD>
+        </TR>
+        <TR>
+          <TD ALIGN="LEFT">month</TD>
+          <TD ALIGN="LEFT">9</TD>
+        </TR>
+        <TR>
+          <TD ALIGN="LEFT">day</TD>
+          <TD ALIGN="LEFT">15</TD>
+        </TR>
+
+        <TR>
+          <TD PORT="v1" BGCOLOR="#f2f2f2" ROWSPAN="3">dates[1]</TD>
+          <TD ALIGN="LEFT">year</TD>
+          <TD ALIGN="LEFT">2026</TD>
+        </TR>
+        <TR>
+          <TD ALIGN="LEFT">month</TD>
+          <TD ALIGN="LEFT">8</TD>
+        </TR>
+        <TR>
+          <TD ALIGN="LEFT">day</TD>
+          <TD ALIGN="LEFT">16</TD>
+        </TR>
+
+        <TR>
+          <TD PORT="v2" BGCOLOR="#f2f2f2" ROWSPAN="3">dates[2]</TD>
+          <TD ALIGN="LEFT">year</TD>
+          <TD ALIGN="LEFT">2026</TD>
+        </TR>
+        <TR>
+          <TD ALIGN="LEFT">month</TD>
+          <TD ALIGN="LEFT">9</TD>
+        </TR>
+        <TR>
+          <TD ALIGN="LEFT">day</TD>
+          <TD ALIGN="LEFT">16</TD>
+        </TR>
+      </TABLE>
+    >
+  ];
+
+}
+----
+
+|===
+
+* `LocalDate[100_000]` before Valhalla: (24 LocalDate object + 4 ref) * 100{nbsp}000 = 2{nbsp}800{nbsp}000 bytes, 100{nbsp}000 allocations.
+* Flattened `LocalDate[100_000]`: (8 flattened LocalDate) *100{nbsp}000 = 800{nbsp}000 bytes, zero allocations.
+
+
+== LinkedList revamped: the idea of "mini-heap"
+
+[cols="50a,50a"]
+|===
+|
+* `value record Node(int prevXorNext, Object ref)`
+* flattened array with the list itself + the chain of "holes"
+* exponentially grow the array as needed
+* all the O(1) promises kept
+* *8 bytes* per Node (4 for `int` + 4 for the compressed ref) -- 3x gain vs `LinkedList$Node`!
+|
+[graphviz]
+----
+digraph G {
+graph [dpi=180, rankdir="LR", splines=true, nodesep=1.0, ranksep=1.0, fontname="Helvetica"];
+node  [shape=plain, fontname="Helvetica"];
+edge  [fontname="Helvetica", penwidth=1.3];
+
+  // ---------------- HEADER ----------------
+  header [
+    label=<
+      <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
+        <TR>
+          <TD BGCOLOR="#e6e6e6" COLSPAN="2"><B>Header</B></TD>
+        </TR>
+        <TR>
+          <TD ALIGN="LEFT">head</TD>
+          <TD PORT="head">0</TD>
+        </TR>
+        <TR>
+          <TD ALIGN="LEFT">tail</TD>
+          <TD PORT="tail">4</TD>
+        </TR>
+        <TR>
+          <TD ALIGN="LEFT">size</TD>
+          <TD>4</TD>
+        </TR>
+        <TR>
+          <TD ALIGN="LEFT">freeHead</TD>
+          <TD PORT="freeHead">2</TD>
+        </TR>
+      </TABLE>
+    >
+  ];
+
+  // ---------------- FLATTENED ARRAY ----------------
+  nodes [
+    label=<
+      <TABLE BORDER="1" CELLBORDER="1" CELLSPACING="0" CELLPADDING="6">
+        <TR>
+          <TD BGCOLOR="#e6e6e6" COLSPAN="3"><B>flattened Node[]</B></TD>
+        </TR>
+        <TR>
+          <TD BGCOLOR="#f2f2f2"><B>slot</B></TD>
+          <TD BGCOLOR="#f2f2f2"><B>prevXorNext</B></TD>
+          <TD BGCOLOR="#f2f2f2"><B>value</B></TD>
+        </TR>
+
+        <TR>
+          <TD PORT="l0"><B>0</B></TD>
+          <TD>1</TD>
+          <TD PORT="s0">A</TD>
+        </TR>
+
+        <TR>
+          <TD><B>1</B></TD>
+          <TD>0 ^ 3 = 3</TD>
+          <TD PORT="s1">B</TD>
+        </TR>
+
+        <TR>
+          <TD PORT="l2" BGCOLOR="#d9d9d9"><B>2</B></TD>
+          <TD BGCOLOR="#d9d9d9">5</TD>
+          <TD PORT="s2" BGCOLOR="#d9d9d9"><FONT COLOR="#666666">hole</FONT></TD>
+        </TR>
+
+        <TR>
+          <TD><B>3</B></TD>
+          <TD>1 ^ 4 = 5</TD>
+          <TD PORT="s3">D</TD>
+        </TR>
+
+        <TR>
+          <TD PORT="l4"><B>4</B></TD>
+          <TD>3</TD>
+          <TD PORT="s4">E</TD>
+        </TR>
+
+        <TR>
+          <TD BGCOLOR="#d9d9d9"><B>5</B></TD>
+          <TD BGCOLOR="#d9d9d9">6</TD>
+          <TD PORT="s5" BGCOLOR="#d9d9d9"><FONT COLOR="#666666">hole</FONT></TD>
+        </TR>
+
+        <TR>
+          <TD BGCOLOR="#d9d9d9"><B>6</B></TD>
+          <TD BGCOLOR="#d9d9d9">-1</TD>
+          <TD PORT="s6" BGCOLOR="#d9d9d9"><FONT COLOR="#666666">hole</FONT></TD>
+        </TR>
+      </TABLE>
+    >
+  ];
+
+  // keep the two objects side by side
+  header -> nodes [style=invis];
+
+  // ---------------- HEADER LINKS ----------------
+  header:head:e     -> nodes:l0:w [color="#1f78b4", label="head", fontsize=10];
+  header:tail:e     -> nodes:l4:w [color="#1f78b4", label="tail", fontsize=10];
+  header:freeHead:e -> nodes:l2:w [color="#666666", style=dashed, label="freeHead", fontsize=10];
+
+  // ---------------- LIVE LIST ----------------
+  nodes:s0:e -> nodes:s1:e [dir=both, color="#1f78b4"];
+  nodes:s1:e -> nodes:s3:e [dir=both, color="#1f78b4"];
+  nodes:s3:e -> nodes:s4:e [dir=both, color="#1f78b4"];
+
+  // ---------------- FREE-SLOT CHAIN ----------------
+  nodes:s2:e -> nodes:s5:e [color="#666666", style=dashed];
+  nodes:s5:e -> nodes:s6:e [color="#666666", style=dashed];
+}
+----
+|===
+
+== Add/remove from the head
+
+[gnuplot,{image-70-width}]
+----
+set terminal pngcairo size 1400,850 font "DejaVu Sans,18"
+set termoption noenhanced
+set datafile missing "NaN"
+
+set title "removeFirst - ns/op, lower is better" \
+    font "DejaVu Sans,24"
+
+set logscale x
+set logscale y
+
+set xrange [10:1000000]
+set yrange [*:*]
+
+set format x "%.0s%c"
+set format y "%.0s%c"
+
+set xtics nomirror font "DejaVu Sans,17"
+set ytics nomirror font "DejaVu Sans,17"
+
+set border 3 linewidth 2
+set grid xtics ytics back lc rgb "#b8b8b8" lw 1
+
+set xlabel "list size (elements, log scale)" \
+    font "DejaVu Sans,20"
+
+set ylabel "ns/op (log scale)" \
+    font "DejaVu Sans,20"
+
+# Legend inside the otherwise-empty top-left part of the plot.
+set key inside left top \
+    font "DejaVu Sans,17" \
+    samplen 2.5 \
+    spacing 1.3 \
+    box opaque
+
+
+f(x) = k*x
+k = 0.3
+
+set fit quiet
+fit f(x) "removeFirst.dat" using 1:2 via k
+
+fit_label = sprintf("ArrayList O(n) fit: y = %.2g x", k)
+
+# ArrayList: blue, squares
+set style line 1 \
+    linecolor rgb "#0072B2" \
+    linewidth 3 \
+    pointtype 5 \
+    pointsize 1.7
+
+# ArrayDeque: orange, diamonds
+set style line 2 \
+    linecolor rgb "#E69F00" \
+    linewidth 3 \
+    pointtype 13 \
+    pointsize 1.7
+
+# LinkedList: vermillion, circles
+set style line 3 \
+    linecolor rgb "#D55E00" \
+    linewidth 3 \
+    pointtype 7 \
+    pointsize 1.7
+
+# ValRecArrayBackedList: bluish green, triangles
+set style line 4 \
+    linecolor rgb "#009E73" \
+    linewidth 3 \
+    pointtype 9 \
+    pointsize 1.7
+
+# ArrayList O(n) fit: same blue as ArrayList, dashed, no markers
+set style line 5 \
+    linecolor rgb "#0072B2" \
+    linewidth 3 \
+    dashtype 2
+
+plot \
+    "removeFirst.dat" using 1:2:3 \
+        with yerrorlines ls 1 \
+        title "ArrayList", \
+    "" using 1:4:5 \
+        with yerrorlines ls 2 \
+        title "ArrayDeque", \
+    "" using 1:6:7 \
+        with yerrorlines ls 3 \
+        title "LinkedList", \
+    "" using 1:8:9 \
+        with yerrorlines ls 4 \
+        title "ValRecArrayBackedList", \
+    f(x) \
+        with lines ls 5 \
+        title fit_label
+
+----
+
+== Add/remove from the middle
+
+[gnuplot,{image-70-width}]
+----
+set terminal pngcairo size 1400,850 font "DejaVu Sans,18"
+set termoption noenhanced
+
+set datafile missing "NaN"
+
+set title "removeMiddle - ns/op, lower is better" \
+    font "DejaVu Sans,24"
+
+set logscale x
+set logscale y
+
+set xrange [10:1000000]
+set yrange [*:*]
+
+set format x "%.0s%c"
+set format y "%.0s%c"
+
+set xtics nomirror font "DejaVu Sans,17"
+set ytics nomirror font "DejaVu Sans,17"
+
+set border 3 linewidth 2
+set grid xtics ytics back lc rgb "#b8b8b8" lw 1
+
+set xlabel "list size (elements, log scale)" \
+    font "DejaVu Sans,20"
+
+set ylabel "ns/op (log scale)" \
+    font "DejaVu Sans,20"
+
+# Legend inside the otherwise-empty top-left part of the plot
+set key inside left top \
+    font "DejaVu Sans,17" \
+    samplen 2.5 \
+    spacing 1.3 \
+    box opaque
+
+f(x) = k*x
+k = 0.04
+
+set fit quiet
+fit f(x) "removeMiddle.dat" using 1:2 via k
+
+fit_label = sprintf("ArrayList O(n) fit: y = %.2g x", k)
+
+# LinkedList: vermillion, circles
+set style line 1 \
+    linecolor rgb "#D55E00" \
+    linewidth 3 \
+    pointtype 7 \
+    pointsize 1.7
+
+# ArrayList: blue, squares
+set style line 2 \
+    linecolor rgb "#0072B2" \
+    linewidth 3 \
+    pointtype 5 \
+    pointsize 1.7
+
+# ValRecArrayBackedList: bluish green, triangles
+set style line 3 \
+    linecolor rgb "#009E73" \
+    linewidth 3 \
+    pointtype 9 \
+    pointsize 1.7
+
+# ArrayList theoretical/empirical O(n) fit:
+# same colour as ArrayList, but dashed and without markers
+set style line 4 \
+    linecolor rgb "#0072B2" \
+    linewidth 3 \
+    dashtype 2
+
+plot \
+    "removeMiddle.dat" using 1:4:5 \
+        with yerrorlines ls 1 \
+        title "LinkedList", \
+    "" using 1:2:3 \
+        with yerrorlines ls 2 \
+        title "ArrayList", \
+    "" using 1:6:7 \
+        with yerrorlines ls 3 \
+        title "ValRecArrayBackedList", \
+    f(x) \
+        with lines ls 4 \
+        title fit_label
+----
+
+== Add/remove from the tail
+
+[gnuplot,{image-70-width}]
+----
+set terminal pngcairo size 1400,850 font "DejaVu Sans,18"
+set termoption noenhanced
+
+set datafile missing "NaN"
+
+set title "removeLast - ns/op, lower is better" \
+    font "DejaVu Sans,24"
+
+# List sizes span several orders of magnitude,
+# but operation times are essentially constant.
+set logscale x
+unset logscale y
+
+set xrange [10:1000000]
+set yrange [0:6]
+
+set format x "%.0s%c"
+
+set xtics nomirror font "DejaVu Sans,17"
+set ytics nomirror font "DejaVu Sans,17"
+
+set border 3 linewidth 2
+set grid xtics ytics back lc rgb "#b8b8b8" lw 1
+
+set xlabel "list size (elements, log scale)" \
+    font "DejaVu Sans,20"
+
+set ylabel "ns/op" \
+    font "DejaVu Sans,20"
+
+# Legend inside the plot.
+# The explicit y range leaves enough room above the measurements.
+set key inside left top \
+    font "DejaVu Sans,17" \
+    samplen 2.5 \
+    spacing 1.3 \
+    box opaque
+
+# ArrayList: blue, squares
+set style line 1 \
+    linecolor rgb "#0072B2" \
+    linewidth 3 \
+    pointtype 5 \
+    pointsize 1.7
+
+# ArrayDeque: orange, diamonds
+set style line 2 \
+    linecolor rgb "#E69F00" \
+    linewidth 3 \
+    pointtype 13 \
+    pointsize 1.7
+
+# LinkedList: vermillion, circles
+set style line 3 \
+    linecolor rgb "#D55E00" \
+    linewidth 3 \
+    pointtype 7 \
+    pointsize 1.7
+
+# ValRecArrayBackedList: bluish green, triangles
+set style line 4 \
+    linecolor rgb "#009E73" \
+    linewidth 3 \
+    pointtype 9 \
+    pointsize 1.7
+
+plot \
+    "removeLast.dat" using 1:2:3 \
+        with yerrorlines ls 1 \
+        title "ArrayList", \
+    "" using 1:4:5 \
+        with yerrorlines ls 2 \
+        title "ArrayDeque", \
+    "" using 1:6:7 \
+        with yerrorlines ls 3 \
+        title "LinkedList", \
+    "" using 1:8:9 \
+        with yerrorlines ls 4 \
+        title "ValRecArrayBackedList"
+----
+
+== Random access: get to the middle
+
+[gnuplot,{image-70-width}]
+----
+set terminal pngcairo size 1400,850 font "DejaVu Sans,18"
+set termoption noenhanced
+
+set datafile missing "NaN"
+
+set title "getMiddle - ns/op, lower is better" \
+    font "DejaVu Sans,24"
+
+# O(1) appears flat; O(n) appears as a slope-1 straight line.
+set logscale x
+set logscale y
+
+set xrange [10:1000000]
+set yrange [*:*]
+
+set format x "%.0s%c"
+set format y "%.0s%c"
+
+set xtics nomirror font "DejaVu Sans,17"
+set ytics nomirror font "DejaVu Sans,17"
+
+set border 3 linewidth 2
+set grid xtics ytics back lc rgb "#b8b8b8" lw 1
+
+set xlabel "list size (elements, log scale)" \
+    font "DejaVu Sans,20"
+
+set ylabel "ns/op (log scale)" \
+    font "DejaVu Sans,20"
+
+set key inside left top \
+    font "DejaVu Sans,17" \
+    samplen 2.5 \
+    spacing 1.3 \
+    box opaque
+
+linked_fit(x) = k_linked*x
+valrec_fit(x) = k_valrec*x
+
+k_linked = 1.0
+k_valrec = 1.0
+
+set fit quiet
+
+fit linked_fit(x) "getMiddle.dat" using 1:4 via k_linked
+fit valrec_fit(x) "getMiddle.dat" using 1:6 via k_valrec
+
+linked_fit_label = sprintf("LinkedList O(n): y = %.2g x", k_linked)
+valrec_fit_label = sprintf("ValRec O(n): y = %.2g x", k_valrec)
+
+# ArrayList: blue, squares
+set style line 1 \
+    linecolor rgb "#0072B2" \
+    linewidth 3 \
+    pointtype 5 \
+    pointsize 1.7
+
+# LinkedList: vermillion, circles
+set style line 2 \
+    linecolor rgb "#D55E00" \
+    linewidth 3 \
+    pointtype 7 \
+    pointsize 1.7
+
+# ValRecArrayBackedList: bluish green, triangles
+set style line 3 \
+    linecolor rgb "#009E73" \
+    linewidth 3 \
+    pointtype 9 \
+    pointsize 1.7
+
+# LinkedList fit: matching colour, dashed
+set style line 4 \
+    linecolor rgb "#D55E00" \
+    linewidth 3 \
+    dashtype 2
+
+# ValRecArrayBackedList fit: matching colour, different dash
+set style line 5 \
+    linecolor rgb "#009E73" \
+    linewidth 3 \
+    dashtype 4
+
+plot \
+    "getMiddle.dat" using 1:2:3 \
+        with yerrorlines ls 1 \
+        title "ArrayList", \
+    "" using 1:4:5 \
+        with yerrorlines ls 2 \
+        title "LinkedList", \
+    "" using 1:6:7 \
+        with yerrorlines ls 3 \
+        title "ValRecArrayBackedList", \
+    linked_fit(x) \
+        with lines ls 4 \
+        title linked_fit_label, \
+    valrec_fit(x) \
+        with lines ls 5 \
+        title valrec_fit_label
+----
+
+== Full iteration
+
+[gnuplot,{image-70-width}]
+----
+set terminal pngcairo size 1400,850 font "DejaVu Sans,18"
+set termoption noenhanced
+
+set datafile missing "NaN"
+
+set title "iterate - ns/op, lower is better" \
+    font "DejaVu Sans,24"
+
+# Both axes span several orders of magnitude.
+# On log-log axes, linear O(n) growth appears as a straight line.
+set logscale x
+set logscale y
+
+set xrange [10:1000000]
+set yrange [*:*]
+
+set format x "%.0s%c"
+set format y "%.0s%c"
+
+set xtics nomirror font "DejaVu Sans,17"
+set ytics nomirror font "DejaVu Sans,17"
+
+set border 3 linewidth 2
+set grid xtics ytics back lc rgb "#b8b8b8" lw 1
+
+set xlabel "list size (elements, log scale)" \
+    font "DejaVu Sans,20"
+
+set ylabel "ns/op (log scale)" \
+    font "DejaVu Sans,20"
+
+# Legend inside the plot; if it feels too crowded on your slide,
+# move it outside right center.
+set key inside left top \
+    font "DejaVu Sans,15" \
+    samplen 2.5 \
+    spacing 1.15 \
+    box opaque
+
+arraylist_fit(x) = k_arraylist*x
+arraydeque_fit(x) = k_arraydeque*x
+linkedlist_fit(x) = k_linkedlist*x
+valrec_fit(x)    = k_valrec*x
+
+k_arraylist  = 0.1
+k_arraydeque = 0.1
+k_linkedlist = 1.0
+k_valrec     = 1.0
+
+set fit quiet
+
+fit arraylist_fit(x) "iterate.dat" using 1:2 via k_arraylist
+fit arraydeque_fit(x) "iterate.dat" using 1:4 via k_arraydeque
+fit linkedlist_fit(x) "iterate.dat" using 1:6 via k_linkedlist
+fit valrec_fit(x)    "iterate.dat" using 1:8 via k_valrec
+
+arraylist_fit_label  = sprintf("ArrayList O(n): y = %.2g x", k_arraylist)
+arraydeque_fit_label = sprintf("ArrayDeque O(n): y = %.2g x", k_arraydeque)
+linkedlist_fit_label = sprintf("LinkedList O(n): y = %.2g x", k_linkedlist)
+valrec_fit_label     = sprintf("ValRec O(n): y = %.2g x", k_valrec)
+
+# ArrayList: blue, squares
+set style line 1 \
+    linecolor rgb "#0072B2" \
+    linewidth 3 \
+    pointtype 5 \
+    pointsize 1.7
+
+# ArrayDeque: orange, diamonds
+set style line 2 \
+    linecolor rgb "#E69F00" \
+    linewidth 3 \
+    pointtype 13 \
+    pointsize 1.7
+
+# LinkedList: vermillion, circles
+set style line 3 \
+    linecolor rgb "#D55E00" \
+    linewidth 3 \
+    pointtype 7 \
+    pointsize 1.7
+
+# ValRecArrayBackedList: bluish green, triangles
+set style line 4 \
+    linecolor rgb "#009E73" \
+    linewidth 3 \
+    pointtype 9 \
+    pointsize 1.7
+
+# Fit lines: same colours, different dash patterns
+set style line 5 \
+    linecolor rgb "#0072B2" \
+    linewidth 3 \
+    dashtype 2
+
+set style line 6 \
+    linecolor rgb "#E69F00" \
+    linewidth 3 \
+    dashtype 3
+
+set style line 7 \
+    linecolor rgb "#D55E00" \
+    linewidth 3 \
+    dashtype 4
+
+set style line 8 \
+    linecolor rgb "#009E73" \
+    linewidth 3 \
+    dashtype 5
+
+plot \
+    "iterate.dat" using 1:2:3 \
+        with yerrorlines ls 1 \
+        title "ArrayList", \
+    "" using 1:4:5 \
+        with yerrorlines ls 2 \
+        title "ArrayDeque", \
+    "" using 1:6:7 \
+        with yerrorlines ls 3 \
+        title "LinkedList", \
+    "" using 1:8:9 \
+        with yerrorlines ls 4 \
+        title "ValRecArrayBackedList", \
+    arraylist_fit(x) \
+        with lines ls 5 \
+        title arraylist_fit_label, \
+    arraydeque_fit(x) \
+        with lines ls 6 \
+        title arraydeque_fit_label, \
+    linkedlist_fit(x) \
+        with lines ls 7 \
+        title linkedlist_fit_label, \
+    valrec_fit(x) \
+        with lines ls 8 \
+        title valrec_fit_label
+----
+
+== Conclusions about Linked List
+
+* A "mini-heap" based implementation beats classic `LinkedList` nearly everywhere, while keeping the big-O promises and having *3x less memory overhead*.
+* Only became possible with Valhalla.
+
+== Conclusions
+
+* This was the only one example. Valhalla opens the gate for a huge number of optimizations in the standard library. The "mini heap" idea may be fruitful in many fields.
+* Valhalla comes "the Java way": without making the user think about low-level details, it unlocks automatic optimizations.
+* Users should expect a significant performance boost with the newer versions of Java.
+
+== Thanks for listening!
+
+icon:envelope[size=lg] ivan@synthesized.io
+
+icon:twitter[size=lg] @inponomarev
