@@ -501,7 +501,6 @@ digraph G {
 [source,c]
 ----
 void fillInterval(Date* from, Date* to) {
-  from = malloc(sizeof(Date));
   *from = (Date){.year = 2026,
     .month = 8, .day = 15};
   Date dateTo = (Date){.year = 2026,
@@ -511,7 +510,7 @@ void fillInterval(Date* from, Date* to) {
 }
 
 void main() {
-  Date* from = NULL;
+  Date* from = malloc(sizeof(Date));
   Date* to = NULL;
   fillInterval(from, to);
   print_date(*from); //Access violation
